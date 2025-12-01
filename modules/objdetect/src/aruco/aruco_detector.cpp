@@ -666,6 +666,9 @@ struct ArucoDetector::ArucoDetectorImpl {
                     detectorParams.minSideLengthCanonicalImg == 0 &&
                     detectorParams.minMarkerLengthRatioOriginalImg == 0.0));
 
+
+        std::cout << "[wilbur] Starting detectMarkers() ....]" << std::endl; // wilbur
+
         Mat grey;
         _convertToGrey(_image, grey);
 
@@ -675,10 +678,12 @@ struct ArucoDetector::ArucoDetectorImpl {
         // if Aruco3 functionality if not wanted
         // change some parameters to be sure to turn it off
         if (!detectorParams.useAruco3Detection) {
+            std::cout << "[wilbur] useAruco3Detection=OFF" << std::endl;
             detectorParams.minMarkerLengthRatioOriginalImg = 0.0;
             detectorParams.minSideLengthCanonicalImg = 0;
         }
         else {
+            std::cout << "[wilbur] useAruco3Detection=ON" << std::endl;
             // always turn on corner refinement in case of Aruco3, due to upsampling
             detectorParams.cornerRefinementMethod = (int)CORNER_REFINE_SUBPIX;
             // only CORNER_REFINE_SUBPIX implement correctly for useAruco3Detection
@@ -691,6 +696,7 @@ struct ArucoDetector::ArucoDetectorImpl {
                  detectorParams.minMarkerLengthRatioOriginalImg));
 
         /// Step 1: create image pyramid. Section 3.4. in [1]
+        std::cout << "[wilbur] Step 1: create image pyramid" << std::endl;
         vector<Mat> grey_pyramid;
         int closest_pyr_image_idx = 0, num_levels = 0;
         //// Step 1.1: resize image with equation (1) from paper [1]
@@ -714,20 +720,26 @@ struct ArucoDetector::ArucoDetectorImpl {
             resize(grey, grey, Size(cvRound(fxfy * grey.cols), cvRound(fxfy * grey.rows)));
 
         /// STEP 2: Detect marker candidates
+        std::cout << "[wilbur] STEP 2: Detect marker candidates" << std::endl;
         vector<vector<Point2f> > candidates;
         vector<vector<Point> > contours;
         vector<int> ids;
 
+        std::cout << "[wilbur] detectorParams.cornerRefinementMethod == " << detectorParams.cornerRefinementMethod << std::endl;
+
         /// STEP 2.a Detect marker candidates :: using AprilTag
         if(detectorParams.cornerRefinementMethod == (int)CORNER_REFINE_APRILTAG){
+            std::cout << "[wilbur] STEP 2.a Detect marker candidates :: using AprilTag" << std::endl;
             _apriltag(grey, detectorParams, candidates, contours);
         }
         /// STEP 2.b Detect marker candidates :: traditional way
         else {
+            std::cout << "[wilbur] STEP 2.b Detect marker candidates :: traditional way" << std::endl;
             detectCandidates(grey, candidates, contours);
         }
 
         /// STEP 2.c FILTER OUT NEAR CANDIDATE PAIRS
+        std::cout << "[wilbur] STEP 2.c FILTER OUT NEAR CANDIDATE PAIRS" << std::endl;
         vector<int> dictIndices;
         vector<vector<Point2f>> rejectedImgPoints;
         if (DictionaryMode::Single == dictMode) {
@@ -737,11 +749,13 @@ struct ArucoDetector::ArucoDetectorImpl {
             contours.clear();
 
             /// STEP 2: Check candidate codification (identify markers)
+            std::cout << "[wilbur] STEP 2: Check candidate codification (identify markers)" << std::endl;
             identifyCandidates(grey, grey_pyramid, selectedCandidates, candidates, contours,
                     ids, dictionary, rejectedImgPoints);
 
             /// STEP 3: Corner refinement :: use corner subpix
             if (detectorParams.cornerRefinementMethod == (int)CORNER_REFINE_SUBPIX) {
+                std::cout << "[wilbur] STEP 3: Corner refinement :: use corner subpix" << std::endl;
                 performCornerSubpixRefinement(grey, grey_pyramid, closest_pyr_image_idx, candidates, dictionary);
             }
         } else if (DictionaryMode::Multi == dictMode) {
@@ -761,6 +775,7 @@ struct ArucoDetector::ArucoDetectorImpl {
             contours.clear();
 
             /// STEP 2: Check candidate codification (identify markers)
+            std::cout << "[wilbur] STEP 2: Check candidate codification (identify markers)" << std::endl;
             int dictIndex = 0;
             for (const Dictionary&  currentDictionary : dictionaries) {
                 // temporary variable to store the current candidates
@@ -773,6 +788,7 @@ struct ArucoDetector::ArucoDetectorImpl {
 
                 /// STEP 3: Corner refinement :: use corner subpix
                 if (detectorParams.cornerRefinementMethod == (int)CORNER_REFINE_SUBPIX) {
+                    std::cout << "[wilbur] STEP 3: Corner refinement :: use corner subpix" << std::endl;
                     performCornerSubpixRefinement(grey, grey_pyramid, closest_pyr_image_idx, currentCandidates, currentDictionary);
                 }
                 candidates.insert(candidates.end(), currentCandidates.begin(), currentCandidates.end());
@@ -780,6 +796,7 @@ struct ArucoDetector::ArucoDetectorImpl {
             }
 
             // Clean up rejectedImgPoints by comparing to itself and all candidates
+            std::cout << "[wilbur] Clean up rejectedImgPoints by comparing to itself and all candidates" << std::endl;
             const float epsilon = 0.000001f;
             auto compareCandidates = [epsilon](vector<Point2f> a, vector<Point2f> b) {
                 for (int i = 0; i < 4; i++) {
@@ -818,7 +835,7 @@ struct ArucoDetector::ArucoDetectorImpl {
 
         /// STEP 3, Optional : Corner refinement :: use contour container
         if (detectorParams.cornerRefinementMethod == (int)CORNER_REFINE_CONTOUR){
-
+            std::cout << "[wilbur] STEP 3, Optional : Corner refinement :: use contour container" << std::endl;
             if (!ids.empty()) {
 
                 // do corner refinement using the contours for each detected markers
@@ -841,6 +858,7 @@ struct ArucoDetector::ArucoDetectorImpl {
         }
 
         // copy to output arrays
+        std::cout << "[wilbur] copy to output arrays" << std::endl;
         _copyVector2Output(candidates, _corners);
         Mat(ids).copyTo(_ids);
         if(_rejectedImgPoints.needed()) {
