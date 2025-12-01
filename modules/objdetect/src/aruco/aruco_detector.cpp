@@ -17,6 +17,20 @@ namespace aruco {
 
 using namespace std;
 
+// Stuff added by wilbur -------------------------------------------------------------------------------
+
+void print_pyramid_sizes(const std::vector<cv::Mat>& grey_pyramid) {
+    std::cout << "--- Pyramid Sizes ---" << std::endl;
+    int level = 0;
+    for (const cv::Mat& image : grey_pyramid) {
+        std::cout << "Level " << level << ": " << image.rows << " x " << image.cols <<  std::endl;
+        level++;
+    }
+    std::cout << "---------------------" << std::endl;
+}
+
+// end of Stuff added by wilbur ----------------------------------------------------------------------
+
 static inline bool readWrite(DetectorParameters &params, const FileNode* readNode,
                              FileStorage* writeStorage = nullptr)
 {
@@ -268,7 +282,7 @@ float static inline getAverageDistance(const std::vector<Point2f>& marker1, cons
 static void _detectInitialCandidates(const Mat &grey, vector<vector<Point2f> > &candidates,
                                      vector<vector<Point> > &contours,
                                      const DetectorParameters &params) {
-
+    std::cout << "[wilbur] _detectInitialCandidates (started)" << std::endl;
     CV_Assert(params.adaptiveThreshWinSizeMin >= 3 && params.adaptiveThreshWinSizeMax >= 3);
     CV_Assert(params.adaptiveThreshWinSizeMax >= params.adaptiveThreshWinSizeMin);
     CV_Assert(params.adaptiveThreshWinSizeStep > 0);
@@ -276,7 +290,7 @@ static void _detectInitialCandidates(const Mat &grey, vector<vector<Point2f> > &
     // number of window sizes (scales) to apply adaptive thresholding
     int nScales =  (params.adaptiveThreshWinSizeMax - params.adaptiveThreshWinSizeMin) /
                       params.adaptiveThreshWinSizeStep + 1;
-
+    std::cout << "[wilbur] _detectInitialCandidates: nScales = " << nScales << std::endl;
     vector<vector<vector<Point2f> > > candidatesArrays((size_t) nScales);
     vector<vector<vector<Point> > > contoursArrays((size_t) nScales);
 
@@ -284,14 +298,17 @@ static void _detectInitialCandidates(const Mat &grey, vector<vector<Point2f> > &
     parallel_for_(Range(0, nScales), [&](const Range& range) {
         const int begin = range.start;
         const int end = range.end;
+        std::cout << "[wilbur] _detectInitialCandidates: range begin = " << begin << " end = " << end << std::endl;
 
         for (int i = begin; i < end; i++) {
             int currScale = params.adaptiveThreshWinSizeMin + i * params.adaptiveThreshWinSizeStep;
             // threshold
             Mat thresh;
+            std::cout << "[wilbur]            thresholding i = " << i << " currScale = winSize = " << currScale << std::endl;
             _threshold(grey, thresh, currScale, params.adaptiveThreshConstant);
 
             // detect rectangles
+            std::cout << "[wilbur] _detectInitialCandidates: detect rectangles ... " << std::endl;
             _findMarkerContours(thresh, candidatesArrays[i], contoursArrays[i],
                                 params.minMarkerPerimeterRate, params.maxMarkerPerimeterRate,
                                 params.polygonalApproxAccuracyRate, params.minCornerDistanceRate,
@@ -701,6 +718,7 @@ struct ArucoDetector::ArucoDetectorImpl {
         int closest_pyr_image_idx = 0, num_levels = 0;
         //// Step 1.1: resize image with equation (1) from paper [1]
         if (detectorParams.useAruco3Detection) {
+            std::cout << "[wilbur]        pyramid + useAruco3Detection" << std::endl;
             const float scale_pyr = 2.f;
             const float img_area = static_cast<float>(grey.rows*grey.cols);
             const float min_area_marker = static_cast<float>(detectorParams.minSideLengthCanonicalImg*
@@ -712,14 +730,21 @@ struct ArucoDetector::ArucoDetectorImpl {
             const float scale_img_area = img_area * fxfy * fxfy;
             closest_pyr_image_idx = cvRound(log2(img_area / scale_img_area)/scale_pyr);
         }
+        std::cout << "[wilbur]        pyramid closest_pyr_image_idx = " << closest_pyr_image_idx << std::endl;
+        std::cout << "[wilbur]        pyramid num_levels = " << num_levels << std::endl;
         buildPyramid(grey, grey_pyramid, num_levels);
+
+        print_pyramid_sizes(grey_pyramid);  // wilbur
+        std::cout << "[wilbur] original grey size is " << grey.rows << " x " << grey.cols << std::endl;
 
         // resize to segmentation image
         // in this reduces size the contours will be detected
         if (fxfy != 1.f)
             resize(grey, grey, Size(cvRound(fxfy * grey.cols), cvRound(fxfy * grey.rows)));
 
-        /// STEP 2: Detect marker candidates
+        std::cout << "[wilbur] resized gray of size is " << grey.rows << " x " << grey.cols << std::endl;
+
+        /// STEP 2: Detect marker candidates --------------------------------------------------------------------------
         std::cout << "[wilbur] STEP 2: Detect marker candidates" << std::endl;
         vector<vector<Point2f> > candidates;
         vector<vector<Point> > contours;
@@ -743,6 +768,7 @@ struct ArucoDetector::ArucoDetectorImpl {
         vector<int> dictIndices;
         vector<vector<Point2f>> rejectedImgPoints;
         if (DictionaryMode::Single == dictMode) {
+            std::cout << "[wilbur]         DictionaryMode::Single == dictMode" << std::endl;
             Dictionary& dictionary = dictionaries.at(0);
             auto selectedCandidates = filterTooCloseCandidates(grey.size(), candidates, contours, dictionary.markerSize);
             candidates.clear();
@@ -759,6 +785,7 @@ struct ArucoDetector::ArucoDetectorImpl {
                 performCornerSubpixRefinement(grey, grey_pyramid, closest_pyr_image_idx, candidates, dictionary);
             }
         } else if (DictionaryMode::Multi == dictMode) {
+            std::cout << "[wilbur]         DictionaryMode::Multi == dictMode" << std::endl;
             map<int, vector<MarkerCandidateTree>> candidatesPerDictionarySize;
             for (const Dictionary& dictionary : dictionaries) {
                 candidatesPerDictionarySize.emplace(dictionary.markerSize, vector<MarkerCandidateTree>());
@@ -833,7 +860,7 @@ struct ArucoDetector::ArucoDetectorImpl {
             }
         }
 
-        /// STEP 3, Optional : Corner refinement :: use contour container
+        /// STEP 3, Optional : Corner refinement :: use contour container --------------------------------------------------
         if (detectorParams.cornerRefinementMethod == (int)CORNER_REFINE_CONTOUR){
             std::cout << "[wilbur] STEP 3, Optional : Corner refinement :: use contour container" << std::endl;
             if (!ids.empty()) {
