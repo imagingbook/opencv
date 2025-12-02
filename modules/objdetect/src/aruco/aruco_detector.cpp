@@ -130,7 +130,7 @@ bool RefineParameters::writeRefineParameters(FileStorage& fs, const String& name
   * @brief Threshold input image using adaptive thresholding
   */
 static void _threshold(InputArray _in, OutputArray _out, int winSize, double constant) {
-
+    std::cout << "[wilbur] _threshold: winSize=" << winSize << " constant=" << constant << std::endl;
     CV_Assert(winSize >= 3);
     if(winSize % 2 == 0) winSize++; // win size must be odd
     adaptiveThreshold(_in, _out, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY_INV, winSize, constant);
@@ -149,11 +149,17 @@ static void _findMarkerContours(const Mat &in, vector<vector<Point2f> > &candida
     CV_Assert(minPerimeterRate > 0 && maxPerimeterRate > 0 && accuracyRate > 0 &&
               minCornerDistanceRate >= 0);
 
+    std::cout << "[wilbur] _findMarkerContours: accuracyRate = " << accuracyRate << std::endl;
+
     // calculate maximum and minimum sizes in pixels
     unsigned int minPerimeterPixels =
         (unsigned int)(minPerimeterRate * max(in.cols, in.rows));
     unsigned int maxPerimeterPixels =
         (unsigned int)(maxPerimeterRate * max(in.cols, in.rows));
+
+    std::cout << "[wilbur] _findMarkerContours: candidates=" << candidates.size() <<
+        " minPerimeterPixels=" << minPerimeterPixels <<
+        " maxPerimeterPixels=" << maxPerimeterPixels << std::endl;
 
     // for aruco3 functionality
     if (minSize != 0) {
@@ -162,6 +168,8 @@ static void _findMarkerContours(const Mat &in, vector<vector<Point2f> > &candida
 
     vector<vector<Point> > contours;
     findContours(in, contours, RETR_LIST, CHAIN_APPROX_NONE);
+    std::cout << "[wilbur] _findMarkerContours: found contours " << contours.size() << std::endl;
+
     // now filter list of contours
     for(unsigned int i = 0; i < contours.size(); i++) {
         // check perimeter
@@ -170,8 +178,19 @@ static void _findMarkerContours(const Mat &in, vector<vector<Point2f> > &candida
 
         // check is square and is convex
         vector<Point> approxCurve;
+
+        // wilbur: https://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm
+        // https://rosettacode.org/wiki/Ramer-Douglas-Peucker_line_simplification#Java
+        // https://github.com/locationtech/jts/blob/master/modules/core/src/main/java/org/locationtech/jts/simplify/DouglasPeuckerLineSimplifier.java
+
+        //std::cout << "[wilbur] approxPolyDP: epsilon = " << double(contours[i].size()) * accuracyRate << std::endl;
+
         approxPolyDP(contours[i], approxCurve, double(contours[i].size()) * accuracyRate, true);
+        // std::cout << "[wilbur] _findMarkerContours: i=" << i << " approxCurve.size()=" << approxCurve.size() << std::endl;
+
         if(approxCurve.size() != 4 || !isContourConvex(approxCurve)) continue;
+
+        // wilbur: found a convex contour with 4 vertices
 
         // check min distance between corners
         double minDistSq = max(in.cols, in.rows) * max(in.cols, in.rows);
@@ -307,7 +326,7 @@ static void _detectInitialCandidates(const Mat &grey, vector<vector<Point2f> > &
             std::cout << "[wilbur]            thresholding i = " << i << " currScale = winSize = " << currScale << std::endl;
             _threshold(grey, thresh, currScale, params.adaptiveThreshConstant);
 
-            // detect rectangles
+            // detect rectangles (wilbur: for level = i with assoc. window size)
             std::cout << "[wilbur] _detectInitialCandidates: detect rectangles ... " << std::endl;
             _findMarkerContours(thresh, candidatesArrays[i], contoursArrays[i],
                                 params.minMarkerPerimeterRate, params.maxMarkerPerimeterRate,
@@ -763,16 +782,23 @@ struct ArucoDetector::ArucoDetectorImpl {
             detectCandidates(grey, candidates, contours);
         }
 
-        /// STEP 2.c FILTER OUT NEAR CANDIDATE PAIRS
+        std::cout << "[wilbur]         marker candidates: " << candidates.size() << std::endl;
+        std::cout << "[wilbur]         marker contours:   " << contours.size() << std::endl;
+
+        /// STEP 2.c FILTER OUT NEAR CANDIDATE PAIRS ---------------------------------------------------------------------
         std::cout << "[wilbur] STEP 2.c FILTER OUT NEAR CANDIDATE PAIRS" << std::endl;
         vector<int> dictIndices;
         vector<vector<Point2f>> rejectedImgPoints;
         if (DictionaryMode::Single == dictMode) {
             std::cout << "[wilbur]         DictionaryMode::Single == dictMode" << std::endl;
             Dictionary& dictionary = dictionaries.at(0);
+            std::cout << "[wilbur]         dictionary.markerSize = " << dictionary.markerSize << std::endl;
+
             auto selectedCandidates = filterTooCloseCandidates(grey.size(), candidates, contours, dictionary.markerSize);
             candidates.clear();
             contours.clear();
+            std::cout << "[wilbur]         selectedCandidates=" << selectedCandidates.size() <<
+                " candidates=" << candidates.size() << " contours=" << contours.size() << std::endl;
 
             /// STEP 2: Check candidate codification (identify markers)
             std::cout << "[wilbur] STEP 2: Check candidate codification (identify markers)" << std::endl;
@@ -1030,6 +1056,8 @@ struct ArucoDetector::ArucoDetectorImpl {
                             vector<int>& ids, const Dictionary& currentDictionary, vector<vector<Point2f>>& rejected) const {
         size_t ncandidates = selectedContours.size();
 
+        std::cout << "[wilbur] identifyCandidates: ncandidates = " << ncandidates << std::endl;
+
         vector<int> idsTmp(ncandidates, -1);
         vector<int> rotated(ncandidates, 0);
         vector<uint8_t> validCandidates(ncandidates, 0);
@@ -1044,6 +1072,7 @@ struct ArucoDetector::ArucoDetectorImpl {
             depths[selectedContours[i].depth].push_back(i);
         }
 
+        std::cout << "[wilbur] identifyCandidates: useAruco3Detection=" << detectorParams.useAruco3Detection << std::endl;
         //// Analyze each of the candidates
         int depth = 0;
         size_t counter = 0;
@@ -1056,14 +1085,17 @@ struct ArucoDetector::ArucoDetectorImpl {
                     was[v] = true;
                     Mat img = grey;
                     // implements equation (4)
+
                     if (detectorParams.useAruco3Detection) {
                         const int minPerimeter = detectorParams.minSideLengthCanonicalImg * 4;
                         const size_t nearestImgId = _findOptPyrImageForCanonicalImg(image_pyr, grey.cols, static_cast<int>(selectedContours[v].contour.size()), minPerimeter);
                         img = image_pyr[nearestImgId];
                     }
                     const float scale = detectorParams.useAruco3Detection ? img.cols / static_cast<float>(grey.cols) : 1.f;
+                    std::cout << "[wilbur] identifyCandidates: v=" << v << " scale=" << scale << std::endl;
 
                     validCandidates[v] = _identifyOneCandidate(currentDictionary, img, selectedContours[v].corners, idsTmp[v], detectorParams, rotated[v], scale);
+                    std::cout << "[wilbur] identifyCandidates: v=" << v << " validCandidates[v]=" << validCandidates[v] << std::endl;
 
                     if (validCandidates[v] == 0 && checkCloseContours) {
                         for (const MarkerCandidate& closeMarkerCandidate: selectedContours[v].closeContours) {
