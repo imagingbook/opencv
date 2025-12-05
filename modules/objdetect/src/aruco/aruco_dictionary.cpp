@@ -9,6 +9,7 @@
 #include "predefined_dictionaries.hpp"
 #include "apriltag/predefined_dictionaries_apriltag.hpp"
 #include <opencv2/objdetect/aruco_dictionary.hpp>
+#include <iostream>
 
 namespace cv {
 namespace aruco {
@@ -75,6 +76,8 @@ void Dictionary::writeDictionary(FileStorage& fs, const String &name)
 
 bool Dictionary::identify(const Mat &onlyBits, int &idx, int &rotation, double maxCorrectionRate) const {
     CV_Assert(onlyBits.rows == markerSize && onlyBits.cols == markerSize);
+    std::cout << "[wilbur] Dictionary::identify(): ---------------------------- " << std::endl;
+
 
     int maxCorrectionRecalculed = int(double(maxCorrectionBits) * maxCorrectionRate);
 

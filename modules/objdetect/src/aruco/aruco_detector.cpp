@@ -449,6 +449,7 @@ static uint8_t _identifyOneCandidate(const Dictionary& dictionary, const Mat& _i
                                      const vector<Point2f>& _corners, int& idx,
                                      const DetectorParameters& params, int& rotation,
                                      const float scale = 1.f) {
+    std::cout << "[wilbur] _identifyOneCandidate(): +++++++++++++++++++ rot=" << std::endl;
     CV_DbgAssert(params.markerBorderBits > 0);
     uint8_t typ=1;
     // get bits
@@ -1077,6 +1078,7 @@ struct ArucoDetector::ArucoDetectorImpl {
         int depth = 0;
         size_t counter = 0;
         while (counter < ncandidates) {
+            std::cout << "[wilbur] identifyCandidates: *** analyzing candidate No " << counter << std::endl;
             parallel_for_(Range(0, (int)depths[depth].size()), [&](const Range& range) {
                 const int begin = range.start;
                 const int end = range.end;
@@ -1140,7 +1142,7 @@ struct ArucoDetector::ArucoDetectorImpl {
                 rejected.push_back(selectedContours[i].corners);
             }
         }
-    }
+    }   // end identifyCandidates()
 
     void performCornerSubpixRefinement(const Mat& grey, const vector<Mat>& grey_pyramid, int closest_pyr_image_idx, const vector<vector<Point2f>>& candidates, const Dictionary& dictionary) const {
         CV_Assert(detectorParams.cornerRefinementWinSize > 0 && detectorParams.cornerRefinementMaxIterations > 0 &&
