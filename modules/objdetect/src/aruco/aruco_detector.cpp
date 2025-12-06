@@ -314,7 +314,31 @@ static void _detectInitialCandidates(const Mat &grey, vector<vector<Point2f> > &
     vector<vector<vector<Point> > > contoursArrays((size_t) nScales);
 
     ////for each value in the interval of thresholding window sizes
-    parallel_for_(Range(0, nScales), [&](const Range& range) {
+
+    // wilbur: replaced parallel_for_'!!
+    // parallel_for_(Range(0, nScales), [&](const Range& range) {
+    //     const int begin = range.start;
+    //     const int end = range.end;
+    //     std::cout << "[wilbur] _detectInitialCandidates: range begin = " << begin << " end = " << end << std::endl;
+    //
+    //     for (int i = begin; i < end; i++) {
+    //         int currScale = params.adaptiveThreshWinSizeMin + i * params.adaptiveThreshWinSizeStep;
+    //         // threshold
+    //         Mat thresh;
+    //         std::cout << "[wilbur]            thresholding i = " << i << " currScale = winSize = " << currScale << std::endl;
+    //         _threshold(grey, thresh, currScale, params.adaptiveThreshConstant);
+    //
+    //         // detect rectangles (wilbur: for level = i with assoc. window size)
+    //         std::cout << "[wilbur] _detectInitialCandidates: detect rectangles ... " << std::endl;
+    //         _findMarkerContours(thresh, candidatesArrays[i], contoursArrays[i],
+    //                             params.minMarkerPerimeterRate, params.maxMarkerPerimeterRate,
+    //                             params.polygonalApproxAccuracyRate, params.minCornerDistanceRate,
+    //                             params.minSideLengthCanonicalImg);
+    //     }
+    // });
+
+    for(int s = 0; s < nScales; s++) {
+        Range range(s, s+1);
         const int begin = range.start;
         const int end = range.end;
         std::cout << "[wilbur] _detectInitialCandidates: range begin = " << begin << " end = " << end << std::endl;
@@ -333,7 +357,8 @@ static void _detectInitialCandidates(const Mat &grey, vector<vector<Point2f> > &
                                 params.polygonalApproxAccuracyRate, params.minCornerDistanceRate,
                                 params.minSideLengthCanonicalImg);
         }
-    });
+    }
+
     // join candidates
     for(int i = 0; i < nScales; i++) {
         for(unsigned int j = 0; j < candidatesArrays[i].size(); j++) {
@@ -449,7 +474,7 @@ static uint8_t _identifyOneCandidate(const Dictionary& dictionary, const Mat& _i
                                      const vector<Point2f>& _corners, int& idx,
                                      const DetectorParameters& params, int& rotation,
                                      const float scale = 1.f) {
-    std::cout << "[wilbur] _identifyOneCandidate(): +++++++++++++++++++ rot=" << std::endl;
+    std::cout << "[wilbur] _identifyOneCandidate(): start" << std::endl;
     CV_DbgAssert(params.markerBorderBits > 0);
     uint8_t typ=1;
     // get bits
@@ -491,6 +516,7 @@ static uint8_t _identifyOneCandidate(const Dictionary& dictionary, const Mat& _i
                                candidateBits.rows - params.markerBorderBits)
             .colRange(params.markerBorderBits, candidateBits.cols - params.markerBorderBits);
 
+    std::cout << "[wilbur] _identifyOneCandidate(): calling dictionary.identify()" << std::endl;
     // try to indentify the marker
     if(!dictionary.identify(onlyBits, idx, rotation, params.errorCorrectionRate))
         return 0;
@@ -1079,9 +1105,12 @@ struct ArucoDetector::ArucoDetectorImpl {
         size_t counter = 0;
         while (counter < ncandidates) {
             std::cout << "[wilbur] identifyCandidates: *** analyzing candidate No " << counter << std::endl;
-            parallel_for_(Range(0, (int)depths[depth].size()), [&](const Range& range) {
-                const int begin = range.start;
-                const int end = range.end;
+
+            // wilbur: parallel_for_ replaced:
+
+            for (int i = 0; i < depths[depth].size(); i++) {
+                const int begin = i;    // range.start;
+                const int end = i + 1;  // range.end;
                 for (int i = begin; i < end; i++) {
                     size_t v = depths[depth][i];
                     was[v] = true;
@@ -1110,7 +1139,40 @@ struct ArucoDetector::ArucoDetectorImpl {
                         }
                     }
                 }
-            });
+            }
+
+            // parallel_for_(Range(0, (int)depths[depth].size()), [&](const Range& range) {
+            //     const int begin = range.start;
+            //     const int end = range.end;
+            //     for (int i = begin; i < end; i++) {
+            //         size_t v = depths[depth][i];
+            //         was[v] = true;
+            //         Mat img = grey;
+            //         // implements equation (4)
+            //
+            //         if (detectorParams.useAruco3Detection) {
+            //             const int minPerimeter = detectorParams.minSideLengthCanonicalImg * 4;
+            //             const size_t nearestImgId = _findOptPyrImageForCanonicalImg(image_pyr, grey.cols, static_cast<int>(selectedContours[v].contour.size()), minPerimeter);
+            //             img = image_pyr[nearestImgId];
+            //         }
+            //         const float scale = detectorParams.useAruco3Detection ? img.cols / static_cast<float>(grey.cols) : 1.f;
+            //         std::cout << "[wilbur] identifyCandidates: v=" << v << " scale=" << scale << std::endl;
+            //
+            //         validCandidates[v] = _identifyOneCandidate(currentDictionary, img, selectedContours[v].corners, idsTmp[v], detectorParams, rotated[v], scale);
+            //         std::cout << "[wilbur] identifyCandidates: v=" << v << " validCandidates[v]=" << validCandidates[v] << std::endl;
+            //
+            //         if (validCandidates[v] == 0 && checkCloseContours) {
+            //             for (const MarkerCandidate& closeMarkerCandidate: selectedContours[v].closeContours) {
+            //                 validCandidates[v] = _identifyOneCandidate(currentDictionary, img, closeMarkerCandidate.corners, idsTmp[v], detectorParams, rotated[v], scale);
+            //                 if (validCandidates[v] > 0) {
+            //                     selectedContours[v].corners = closeMarkerCandidate.corners;
+            //                     selectedContours[v].contour = closeMarkerCandidate.contour;
+            //                     break;
+            //                 }
+            //             }
+            //         }
+            //     }
+            // });
 
             // visit the parent vertices of the detected markers to skip identify parent contours
             for(size_t v : depths[depth]) {
