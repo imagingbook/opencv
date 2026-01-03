@@ -383,9 +383,13 @@ void CharucoBoardImpl::calcNearestMarkerCorners() {
     nearestMarkerCorners.resize(chessboardCorners.size());
     unsigned int nMarkers = (unsigned int)objPoints.size();
     unsigned int nCharucoCorners = (unsigned int)chessboardCorners.size();
+
+    // for each chessboard/charuco corner i:
     for(unsigned int i = 0; i < nCharucoCorners; i++) {
         double minDist = -1; // distance of closest markers
         Point3f charucoCorner = chessboardCorners[i];
+
+        //  for each markers j:
         for(unsigned int j = 0; j < nMarkers; j++) {
             // calculate distance from marker center to charuco corner
             Point3f center = Point3f(0, 0, 0);
@@ -395,7 +399,8 @@ void CharucoBoardImpl::calcNearestMarkerCorners() {
             double sqDistance;
             Point3f distVector = charucoCorner - center;
             sqDistance = distVector.x * distVector.x + distVector.y * distVector.y;
-            if(j == 0 || fabs(sqDistance - minDist) < cv::pow(0.01 * squareLength, 2)) {
+            // nearestMarkerIdx[i] = list of markers at the same minimum distance (of marker center)
+            if(j == 0 || fabs(sqDistance - minDist) < cv::pow(0.01 * squareLength, 2)) {    // wilbur: ???
                 // if same minimum distance (or first iteration), add to nearestMarkerIdx vector
                 nearestMarkerIdx[i].push_back(j);
                 minDist = sqDistance;

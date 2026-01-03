@@ -76,7 +76,7 @@ void Dictionary::writeDictionary(FileStorage& fs, const String &name)
 
 bool Dictionary::identify(const Mat &onlyBits, int &idx, int &rotation, double maxCorrectionRate) const {
     CV_Assert(onlyBits.rows == markerSize && onlyBits.cols == markerSize);
-    std::cout << "[wilbur] Dictionary::identify(): ---------------------------- " << "\n"; cout.flush();
+    //std::cout << "[wilbur] Dictionary::identify(): ---------------------------- " << "\n"; cout.flush();
 
     int maxCorrectionRecalculed = int(double(maxCorrectionBits) * maxCorrectionRate);
 
@@ -85,11 +85,11 @@ bool Dictionary::identify(const Mat &onlyBits, int &idx, int &rotation, double m
 
     idx = -1; // by default, not found
 
-    std::cout << "[wilbur] Dictionary::identify(): candidates = bytesList.rows = " << bytesList.rows << "\n";
+    //std::cout << "[wilbur] Dictionary::identify(): candidates = bytesList.rows = " << bytesList.rows << "\n";
 
     // search closest marker in dict
     for(int m = 0; m < bytesList.rows; m++) {
-        std::cout << "[wilbur]  BEFORE  checking m = " << m << "\n"; cout.flush();
+        //std::cout << "[wilbur]  BEFORE  checking m = " << m << "\n"; cout.flush();
         int currentMinDistance = markerSize * markerSize + 1;
         int currentRotation = -1;
         for(unsigned int r = 0; r < 4; r++) {
@@ -100,19 +100,19 @@ bool Dictionary::identify(const Mat &onlyBits, int &idx, int &rotation, double m
                     candidateBytes.ptr(),
                     candidateBytes.cols);
 
-            std::cout << "[wilbur]               r = " << r << ", hamming = " << currentHamming << "\n"; cout.flush();
+            //std::cout << "[wilbur]               r = " << r << ", hamming = " << currentHamming << "\n"; cout.flush();
             if(currentHamming < currentMinDistance) {
                 currentMinDistance = currentHamming;
                 currentRotation = r;
             }
         }
-        std::cout << "[wilbur]  AFTER  checking m = " << m << "\n"; cout.flush();
+        //std::cout << "[wilbur]  AFTER  checking m = " << m << "\n"; cout.flush();
 
         // if maxCorrection is fulfilled, return this one
         if(currentMinDistance <= maxCorrectionRecalculed) {
             idx = m;
             rotation = currentRotation;
-            std::cout << "[wilbur]         breaking at idx = " << idx << " rotation = " << rotation << "\n"; cout.flush();
+            //std::cout << "[wilbur]         breaking at idx = " << idx << " rotation = " << rotation << "\n"; cout.flush();
             break;
         }
     }

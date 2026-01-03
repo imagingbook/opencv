@@ -311,8 +311,10 @@ struct CharucoDetector::CharucoDetectorImpl {
         return (int)_filteredCharucoIds.total();
     }
 
+    // detect markers and charuco corners
     void detectBoard(InputArray image, OutputArray charucoCorners, OutputArray charucoIds,
                      InputOutputArrayOfArrays markerCorners, InputOutputArray markerIds) {
+
         CV_Assert((markerCorners.empty() && markerIds.empty() && !image.empty()) || (markerCorners.total() == markerIds.total()));
         vector<vector<Point2f>> tmpMarkerCorners;
         vector<int> tmpMarkerIds;

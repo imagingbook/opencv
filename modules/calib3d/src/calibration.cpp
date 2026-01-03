@@ -90,7 +90,9 @@ static void initIntrinsicParams2D( const Mat& objectPoints,
         pos += ni;
 
         Matx33d H;
-        Mat matH0 = findHomography(matM, _m);
+        // -------------------------------------------------------------------------------------------
+        Mat matH0 = findHomography(matM, _m);       // wilbur: CHECK!!
+        // -------------------------------------------------------------------------------------------
         CV_Assert(matH0.size() == Size(3, 3));
         matH0.convertTo(H, CV_64F);
 
@@ -125,7 +127,9 @@ static void initIntrinsicParams2D( const Mat& objectPoints,
     }
 
     Vec2d f;
-    solve(matA, matb, f, DECOMP_NORMAL + DECOMP_SVD);
+    // -------------------------------------------------------------------------------------------
+    solve(matA, matb, f, DECOMP_NORMAL + DECOMP_SVD);  // wilbur: determine (1/fx)^2, (1/fy)^2
+    // -------------------------------------------------------------------------------------------
     fx = std::sqrt(fabs(1./f[0]));
     fy = std::sqrt(fabs(1./f[1]));
     if( aspectRatio != 0 )
@@ -163,6 +167,9 @@ static void subMatrix(const Mat& src, Mat& dst,
     }
 }
 
+    // -------------------------------------------------------------------------------------------------
+    // wilbur: this is the main thing!
+    // -------------------------------------------------------------------------------------------------
 static double calibrateCameraInternal( const Mat& objectPoints,
                                        const Mat& imagePoints, const Mat& npoints,
                                        Size imageSize, int iFixedPoint, Mat& cameraMatrix, Mat& distCoeffs,
@@ -313,7 +320,7 @@ static double calibrateCameraInternal( const Mat& objectPoints,
         }
         distCoeffs.convertTo(_k, CV_64F);
     }
-    else
+    else   // wilbur: no initial guess for camera intrinsics
     {
         Scalar mean, sdv;
         meanStdDev(matM, mean, sdv);
